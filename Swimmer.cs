@@ -1,5 +1,8 @@
 using HtmlAgilityPack;
+using System.Collections.Specialized;
 using System.Net.Http.Headers;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
 
 namespace scnet
 {
@@ -7,135 +10,168 @@ namespace scnet
     {
         public int ID { get; }
         private string page;
-        
+
         public Swimmer(int swID)
         {
             ID = swID;
             page = "https://www.swimcloud.com/swimmer/" + swID;
         }
 
-        // get first+last name
-        public async Task<string> getName()
+        public string Name
         {
-            await Utils.scr.SetPage(page);
-
-            var parent = Utils.scr.getNodeListContaining("h1", "class", "c-toolbar__title").Result.ToList();
-
-            return parent[0].InnerText.Trim();
-        }
-
-        // get location 
-
-        public async Task<string> getLocation()
-        {
-            await Utils.scr.SetPage(page);
-
-            var divP = (await Utils.scr.getNodeListContaining("div", "class", "c-toolbar__meta")).ToList()[0];
-
-            var listP = divP.ChildNodes[1];
-
-            return listP.ChildNodes[1].InnerText.Trim();
-        }
-
-        // get school
-
-        public async Task<Team> getCurrentTeam()
-        {
-            await Utils.scr.SetPage(page);
-
-            var divP = (await Utils.scr.getNodeListContaining("div", "class", "c-toolbar__meta")).ToList()[0];
-
-            var listP = divP.ChildNodes[1];
-
-            return new Team(Int32.Parse(listP.ChildNodes[3].ChildNodes[1].GetAttributeValue("href", "").Substring("/team/".Length)));
-        }
-
-        public async Task<string> getCurrentTeamName()
-        {
-            await Utils.scr.SetPage(page);
-
-            var divP = (await Utils.scr.getNodeListContaining("div", "class", "c-toolbar__meta")).ToList()[0];
-
-            var listP = divP.ChildNodes[1];
-
-            return listP.ChildNodes[3].InnerText.Trim();
-        }
-
-        // get most recent meet
-
-        public async Task<List<Team>> getAllTeams()
-        {
-            await Utils.scr.SetPage(page);
-
-            List<Team> ret = new List<Team>();
-
-            var teamRef = (await Utils.scr.getNodeListContaining("a", "class", "u-is-hidden@palm")).ToList();
-
-            foreach (var team in teamRef )
+            get
             {
-                ret.Add(new Team(Int32.Parse(team.GetAttributeValue("href", "").Substring("/team/".Length))));
-            }
+                async Task<string> _impl()
+                {
+                    try
+                    {
+                        await Utils.scr.SetPage(page);
 
-            return ret;
+                        var parent = Utils.scr.getNodeListContaining("h1", "class", "c-toolbar__title").Result.ToList();
+
+                        return parent[0].InnerText.Trim();
+                    }
+                    catch (Exception ex)
+                    {
+                        return "Could not get name: " + ex.Message;
+                    }
+                }
+
+                return _impl().Result;
+            }
         }
 
-        public async Task<List<string>> getAllTeamNames()
+        public string Location
         {
-            await Utils.scr.SetPage(page);
-
-            List<string> ret = new List<string>();
-
-            var teamRef = (await Utils.scr.getNodeListContaining("a", "class", "u-is-hidden@palm")).ToList();
-
-            foreach (var team in teamRef)
+            get
             {
-                ret.Add(team.GetAttributeValue("title", ""));
+                async Task<string> _impl()
+                {
+                    try
+                    {
+                        await Utils.scr.SetPage(page);
+
+                        var divP = (await Utils.scr.getNodeListContaining("div", "class", "c-toolbar__meta")).ToList()[0];
+
+                        var listP = divP.ChildNodes[1];
+
+                        return listP.ChildNodes[1].InnerText.Trim();
+                    }
+                    catch (Exception ex)
+                    {
+                        return "Could not get location: " + ex.Message;
+                    }
+                }
+
+                return _impl().Result;
             }
-
-            return ret;
         }
 
-
-        public async Task<Meet> getMostRecentMeet()
+        public Team Team
         {
-            await Utils.scr.SetPage(page + "/meets/");
-            
-            var hrefs = (await Utils.scr.getNodeListContaining("a", "class", "c-swimmer-meets__link-mask")).ToList()[0];
+            get {
+                async Task<Team> _impl() {
+                    try
+                    {
+                        await Utils.scr.SetPage(page);
 
-            var atval = hrefs.GetAttributeValue("href", "");
+                        var divP = (await Utils.scr.getNodeListContaining("div", "class", "c-toolbar__meta")).ToList()[0];
 
-            return new Meet(Int32.Parse(atval.Substring("/results/".Length, atval.Length - "/results/".Length - "/swimmer/".Length - ID.ToString().Length - "/".Length)));
-        }
+                        var listP = divP.ChildNodes[1];
 
-        public async Task<List<Meet>> getAllMeets()
-        {
-            await Utils.scr.SetPage(page + "/meets/");
-            
-            var hrefs = (await Utils.scr.getNodeListContaining("a", "class", "c-swimmer-meets__link-mask")).ToList();
+                        return new Team(Int32.Parse(listP.ChildNodes[3].ChildNodes[1].GetAttributeValue("href", "").Substring("/team/".Length)));
+                    }
+                    catch
+                    {
+                        return null;
+                    }
+                }
 
-            List<Meet> ret = new List<Meet>();
-            
-            foreach (var href in hrefs)
-            {
-                var atval = href.GetAttributeValue("href", "");
-                ret.Add(new Meet(Int32.Parse(atval.Substring("/results/".Length, atval.Length - "/results/".Length - "/swimmer/".Length - ID.ToString().Length - "/".Length))));
+                return _impl().Result;
             }
-
-            return ret;
         }
 
-        public async Task<List<string>> getAllMeetNames()
+        public List<Team> AllTeams
         {
-            await Utils.scr.SetPage(page + "/meets/");
+            get {
+                async Task<List<Team>> _impl() {
+                    try
+                    {
+                        await Utils.scr.SetPage(page);
 
-            var hdrs = (await Utils.scr.getNodeListContaining("h3", "class", "c-title--small")).ToList();
+                        List<Team> ret = new List<Team>();
 
-            List<string> ret = new List<string>();
+                        var teamRef = (await Utils.scr.getNodeListContaining("a", "class", "u-is-hidden@palm")).ToList();
 
-            foreach (var hdr in hdrs)
-                ret.Add(hdr.InnerText);
+                        foreach (var team in teamRef)
+                        {
+                            ret.Add(new Team(Int32.Parse(team.GetAttributeValue("href", "").Substring("/team/".Length))));
+                        }
 
-            return string.IsNullOrEmpty(ret[0]) ? new List<string>() { "No Available Meets Found" } : ret;
+                        return ret;
+                    }
+                    catch
+                    {
+                        return null;
+                    }
+                }
+
+                return _impl().Result;
+            }
+        }
+
+        public Meet MostRecentMeet
+        {
+            get {
+                async Task<Meet> _impl() {
+                    try
+                    {
+                        await Utils.scr.SetPage(page + "/meets/");
+
+                        var href = (await Utils.scr.getNodeListContaining("a", "class", "c-swimmer-meets__link-mask")).ToList()[0];
+
+                        var atval = href.GetAttributeValue("href", "");
+
+                        return new Meet(Int32.Parse(atval.Substring("/results/".Length, atval.Length - "/results/".Length - "/swimmer/".Length - ID.ToString().Length - "/".Length)));
+                    }
+                    catch
+                    {
+                        return null;
+                    }
+                }
+
+                return _impl().Result;
+            }
+        }
+
+        public List<Meet> AllMeets
+        {
+            get {
+                async Task<List<Meet>> _impl() {
+                    try
+                    {
+                        await Utils.scr.SetPage(page + "/meets/");
+
+                        var hrefs = (await Utils.scr.getNodeListContaining("a", "class", "c-swimmer-meets__link-mask")).ToList();
+
+                        List<Meet> ret = new List<Meet>();
+
+                        foreach (var href in hrefs)
+                        {
+                            var atval = href.GetAttributeValue("href", "");
+                            ret.Add(new Meet(Int32.Parse(atval.Substring("/results/".Length, atval.Length - "/results/".Length - "/swimmer/".Length - ID.ToString().Length - "/".Length))));
+                        }
+
+                        return ret;
+                    }
+                    catch
+                    {
+                        return null;
+                    }
+                }
+
+                return _impl().Result;
+            }
         }
     }
 }
